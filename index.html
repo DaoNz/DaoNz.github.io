@@ -12,7 +12,7 @@
 	<script>
 		const importTest = new ImportTest();
 		
-		async function loadJson() {
+		loadJson = async () => {
 			try {
 				const response = await fetch('assets/json/tmp.json');
 				const jsonData = await response.json();
@@ -27,7 +27,19 @@
 			loadJson();
 		};
 	</script>
+	
+	<style>
+		@font-face {
+			font-family: 'SB_Gothic';
+			src: url('/assets/fonts/SB_Gothic.ttf') format('truetype');
+		}
+		
+		body {
+			font-family: SB_Gothic;
+		}
+	</style>
 </head>
+
 <body>
 	<h1>Index Page</h1>
 	<hr>
