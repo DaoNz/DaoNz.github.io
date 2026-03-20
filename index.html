@@ -2,29 +2,15 @@
 <html lang="en">
 <head>
 	<meta charset="UTF-8">
-	<title>Index</title>
+	<title>🎡 돌림판</title>
 	
 	<!-- Bootstrap v5.3.3 Dist -->
 	<link href="/assets/Bootstrap/css/bootstrap.css" rel="stylesheet">
 	<script src="/assets/Bootstrap/js/bootstrap.js"></script>
 	
-	<script type="text/javascript" src="src/importTest.js" charset="UTF-8"></script>
 	<script>
-		const importTest = new ImportTest();
-		
-		loadJson = async () => {
-			try {
-				const response = await fetch('assets/json/tmp.json');
-				const jsonData = await response.json();
-				console.log('JSON Data:', jsonData);
-				
-			} catch (error) {
-				console.error('Error loading JSON:', error);
-			}
-		}
-		
 		window.onload = () => {
-			loadJson();
+			setupWheel();
 		};
 	</script>
 	
@@ -33,25 +19,403 @@
 			font-family: 'SB_Gothic';
 			src: url('/assets/fonts/SB_Gothic.ttf') format('truetype');
 		}
-		
-		body {
-			font-family: SB_Gothic;
+		body { font-family: SB_Gothic; }
+
+		@keyframes fadeInScale {
+			from { opacity: 0; transform: scale(0.6); }
+			to   { opacity: 1; transform: scale(1); }
+		}
+		.wheel-result-anim { animation: fadeInScale 0.45s ease-out; }
+
+		/* 결과 모달 팝 애니메이션 */
+		@keyframes resultPop {
+			0%   { transform: scale(0.2) rotate(-5deg); opacity: 0; }
+			60%  { transform: scale(1.08) rotate(2deg);  opacity: 1; }
+			80%  { transform: scale(0.96) rotate(-1deg); }
+			100% { transform: scale(1)    rotate(0deg);  opacity: 1; }
+		}
+		#resultModal .modal-dialog { transition: none; }
+		#resultModal.show .modal-dialog {
+			animation: resultPop 0.52s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+		}
+		#resultModal .modal-content {
+			border-radius: 24px;
+			overflow: hidden;
+			border: none;
+			box-shadow: 0 16px 48px rgba(0,0,0,.45);
+		}
+
+		.fab-wheel {
+			position: fixed;
+			bottom: 28px;
+			right: 28px;
+			z-index: 1055;
+			border-radius: 50px;
+			padding: 12px 22px;
+			font-size: 1rem;
+			box-shadow: 0 4px 18px rgba(0,0,0,.35);
+			transition: transform .15s, box-shadow .15s;
+		}
+		.fab-wheel:hover {
+			transform: translateY(-2px);
+			box-shadow: 0 8px 24px rgba(0,0,0,.4);
 		}
 	</style>
 </head>
 
 <body>
-	<h1>Index Page</h1>
-	<hr>
-	<p> Lorem ipsum dolor sit amet, consectetur adipisicing elit. Quisquam, quod, voluptate, quae, quibusdam quia</p>
-	<p> Github IO Test Index Html Page</p>
-	<p> 깃허브 아이오 테스트 페이지</p>
-	<input type="button" value="URL TEST" onclick="location.href='view/html/urlTest.html'">
-	<br>
-	<input type="button" value="IMPORT TEST StrS" onclick="importTest.consoleTestStr('hello')">
-	<input type="button" value="IMPORT TEST Str" onclick="importTest.consoleTestStr(123)">
-	<br>
-	<input type="button" value="IMPORT TEST NumS" onclick="importTest.consoleTestNum('hello')">
-	<input type="button" value="IMPORT TEST Num" onclick="importTest.consoleTestNum(123)">
+
+	<!-- ====== 돌림판 섹션 ====== -->
+	<div class="container mt-4 mb-5">
+		<h2>🎡 돌림판</h2>
+
+		<!-- 캔버스 & 버튼 -->
+		<div class="d-flex flex-column align-items-center">
+
+			<!-- 포인터 + 캔버스 래퍼 -->
+			<div style="position:relative; display:inline-block;">
+				<!-- 위쪽 화살표 (포인터) -->
+				<div style="
+					position:absolute; top:-22px; left:50%;
+					transform:translateX(-50%);
+					width:0; height:0;
+					border-left:14px solid transparent;
+					border-right:14px solid transparent;
+					border-top:28px solid #dc3545;
+					z-index:10;
+					filter:drop-shadow(0 2px 4px rgba(0,0,0,.45));
+				"></div>
+				<canvas id="wheelCanvas" width="420" height="420"
+				        style="display:block; border-radius:50%;
+				               box-shadow:0 6px 24px rgba(0,0,0,.3);">
+				</canvas>
+			</div>
+
+			<button id="spinBtn" class="btn btn-success btn-lg mt-4 px-5 py-2"
+			        onclick="spinWheel()" disabled>
+				🎰 돌리기!
+			</button>
+
+			<div id="wheelResult" class="mt-3" style="min-height:72px; text-align:center; display:none;"></div>
+		</div>
+	</div>
+
+	<!-- ====== 결과 모달 ====== -->
+	<div class="modal fade" id="resultModal" tabindex="-1">
+		<div class="modal-dialog modal-dialog-centered">
+			<div class="modal-content">
+				<div class="modal-body text-center py-5 px-4" id="resultModalBody">
+					<div style="font-size:3.8rem; line-height:1; filter:drop-shadow(0 2px 6px rgba(0,0,0,.3));">🎉</div>
+					<div style="font-size:0.95rem; color:rgba(255,255,255,0.75); margin-top:16px;
+					            letter-spacing:4px; font-weight:500; text-transform:uppercase;">
+						당 첨
+					</div>
+					<div id="resultModalText"
+					     style="font-size:2.4rem; font-weight:bold; color:#fff;
+					            margin-top:10px; text-shadow:0 3px 14px rgba(0,0,0,.4); word-break:keep-all;">
+					</div>
+					<button class="btn btn-light mt-5 px-5 py-2"
+					        style="border-radius:50px; font-size:1rem; font-weight:600; opacity:.92;"
+					        data-bs-dismiss="modal">
+						확인
+					</button>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<!-- ====== 항목 바꾸기 FAB ====== -->
+	<button class="btn btn-secondary fab-wheel"
+	        data-bs-toggle="modal" data-bs-target="#wheelModal">
+		✏️ 항목 바꾸기
+	</button>
+
+	<!-- ====== 항목 바꾸기 모달 ====== -->
+	<div class="modal fade" id="wheelModal" tabindex="-1" aria-labelledby="wheelModalLabel" aria-hidden="true">
+		<div class="modal-dialog modal-dialog-centered">
+			<div class="modal-content">
+				<div class="modal-header">
+					<h5 class="modal-title" id="wheelModalLabel">✏️ 항목 바꾸기</h5>
+					<button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+				</div>
+				<div class="modal-body">
+
+					<!-- 텍스트 일괄 초기화 -->
+					<label class="form-label text-muted small">쉼표(,)로 구분하여 일괄 입력</label>
+					<div class="d-flex gap-2 mb-3">
+						<input type="text" id="wheelInput" class="form-control"
+						       placeholder="예) 첫번째,두번째,세번째"
+						       value="기원해봄,근행해봄,성찰해봄,정진해봄,전해봄,초대해봄,경청해봄,동행해봄,보은해봄,환희해봄,봉사해봄,서원해봄">
+						<button class="btn btn-outline-secondary text-nowrap" onclick="resetFromText()">
+							이 내용으로 초기화!
+						</button>
+					</div>
+
+					<hr class="my-2">
+
+					<!-- 항목 리스트 -->
+					<label class="form-label text-muted small">항목 목록</label>
+					<div id="wheelItemList"
+					     style="max-height:260px; overflow-y:auto;"
+					     class="d-flex flex-column gap-2 mb-2">
+						<!-- JS로 렌더링 -->
+					</div>
+					<button class="btn btn-outline-primary w-100 mt-1" onclick="addWheelItem()">
+						+ 항목 추가
+					</button>
+
+				</div>
+				<div class="modal-footer">
+					<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
+					<button type="button" class="btn btn-primary px-4" onclick="applyWheel()">만들기</button>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<!-- ====== 돌림판 스크립트 ====== -->
+	<script>
+		/* ── 상태 변수 ── */
+		let wItems    = [];
+		let wAngle    = 0;
+		let wSpinning = false;
+
+		const W_COLORS = [
+			'#5E8FB5', // 더스티 블루      — 기원해봄
+			'#5D9E73', // 세이지 그린      — 근행해봄
+			'#B06060', // 소프트 레드      — 성찰해봄
+			'#8A6AAE', // 라벤더 퍼플      — 정진해봄
+			'#3D9B9B', // 뮤트 틸          — 전해봄
+			'#B87C3A', // 웜 앰버          — 초대해봄
+			'#5568A8', // 슬레이트 블루    — 경청해봄
+			'#A85878', // 모브 핑크        — 동행해봄
+			'#3A8FAA', // 오션 블루        — 보은해봄
+			'#729B30', // 올리브 그린      — 환희해봄
+			'#A87030', // 캐러멜           — 봉사해봄
+			'#7050A8', // 미디엄 바이올렛  — 서원해봄
+		];
+
+		/* ── 돌림판 구성 ── */
+		function setupWheel() {
+			const val = document.getElementById('wheelInput').value;
+			wItems = val.split(',').map(s => s.trim()).filter(s => s.length > 0);
+
+			if (wItems.length < 2) {
+				alert('최소 2개 이상의 항목을 입력해주세요!');
+				return;
+			}
+
+			wAngle = 0;
+			drawWheel(0);
+			document.getElementById('spinBtn').disabled = false;
+			document.getElementById('wheelResult').innerHTML = '';
+		}
+
+		/* ── 캔버스 그리기 ── */
+		function drawWheel(rotation) {
+			const canvas = document.getElementById('wheelCanvas');
+			if (!canvas) return;
+
+			const ctx  = canvas.getContext('2d');
+			const cx   = canvas.width  / 2;
+			const cy   = canvas.height / 2;
+			const r    = Math.min(cx, cy) - 8;
+			const n     = wItems.length;
+			const slice = (2 * Math.PI) / n;
+
+			ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+			/* 바깥 테두리 원 */
+			ctx.beginPath();
+			ctx.arc(cx, cy, r + 6, 0, 2 * Math.PI);
+			ctx.fillStyle = '#2c2c2c';
+			ctx.fill();
+
+			/* 칸 그리기 */
+			for (let i = 0; i < n; i++) {
+				const sa = rotation - Math.PI / 2 + i * slice;
+				const ea = sa + slice;
+
+				/* 부채꼴 */
+				ctx.beginPath();
+				ctx.moveTo(cx, cy);
+				ctx.arc(cx, cy, r, sa, ea);
+				ctx.closePath();
+				ctx.fillStyle = W_COLORS[i % W_COLORS.length];
+				ctx.fill();
+				ctx.strokeStyle = 'rgba(255,255,255,.75)';
+				ctx.lineWidth = 2;
+				ctx.stroke();
+
+				/* 텍스트 */
+				ctx.save();
+				ctx.translate(cx, cy);
+				ctx.rotate(sa + slice / 2);
+				ctx.textAlign = 'right';
+				ctx.fillStyle = '#fff';
+
+				const fontSize = Math.max(11, Math.min(17, r * slice * 0.38));
+				ctx.font = `bold ${fontSize}px 'SB_Gothic', Arial, sans-serif`;
+				ctx.shadowColor = 'rgba(0,0,0,.65)';
+				ctx.shadowBlur  = 4;
+
+				/* 긴 텍스트 말줄임 */
+				let txt = wItems[i];
+				const maxW = r * 0.68;
+				if (ctx.measureText(txt).width > maxW) {
+					while (txt.length > 1 && ctx.measureText(txt + '…').width > maxW)
+						txt = txt.slice(0, -1);
+					txt += '…';
+				}
+				ctx.fillText(txt, r - 14, fontSize * 0.38);
+				ctx.restore();
+			}
+
+			/* 중앙 원 */
+			ctx.beginPath();
+			ctx.arc(cx, cy, 20, 0, 2 * Math.PI);
+			ctx.fillStyle = '#fff';
+			ctx.fill();
+			ctx.strokeStyle = '#bbb';
+			ctx.lineWidth = 3;
+			ctx.stroke();
+
+			ctx.beginPath();
+			ctx.arc(cx, cy, 7, 0, 2 * Math.PI);
+			ctx.fillStyle = '#555';
+			ctx.fill();
+		}
+
+		/* ── 돌리기 ── */
+		function spinWheel() {
+			if (wSpinning) return;
+			wSpinning = true;
+
+			const btn = document.getElementById('spinBtn');
+			btn.disabled = true;
+			btn.textContent = '🔄 돌리는 중…';
+			document.getElementById('wheelResult').innerHTML = '';
+
+			const extra  = (Math.random() * 8 + 5) * 2 * Math.PI; // 5~13 바퀴
+			const target = wAngle + extra;
+			const dur    = 3500 + Math.random() * 2000;            // 3.5~5.5 초
+			const t0     = performance.now();
+			const a0     = wAngle;
+
+			(function loop(now) {
+				const p = Math.min((now - t0) / dur, 1);
+				const e = 1 - Math.pow(1 - p, 4);   // ease-out quart
+				wAngle  = a0 + (target - a0) * e;
+				drawWheel(wAngle);
+
+				if (p < 1) {
+					requestAnimationFrame(loop);
+				} else {
+					wAngle    = target;
+					wSpinning = false;
+					drawWheel(wAngle);
+					btn.disabled    = false;
+					btn.textContent = '🎰 돌리기!';
+					showWheelResult();
+				}
+			})(performance.now());
+		}
+
+		/* ── 결과 표시 (모달) ── */
+		function showWheelResult() {
+			const n     = wItems.length;
+			const slice = (2 * Math.PI) / n;
+			const norm  = ((-wAngle % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+			const idx   = Math.floor(norm / slice) % n;
+
+			const item  = wItems[idx];
+			const base  = W_COLORS[idx % W_COLORS.length];
+			const light = lightenColor(base, 38);
+
+			const body = document.getElementById('resultModalBody');
+			body.style.background = `linear-gradient(145deg, ${light} 0%, ${base} 100%)`;
+			document.getElementById('resultModalText').textContent = item;
+
+			new bootstrap.Modal(document.getElementById('resultModal')).show();
+		}
+
+		/* hex 색상을 amt 만큼 밝게 */
+		function lightenColor(hex, amt) {
+			const n = parseInt(hex.slice(1), 16);
+			const r = Math.min(255, (n >> 16 & 255) + amt);
+			const g = Math.min(255, (n >>  8 & 255) + amt);
+			const b = Math.min(255, (n       & 255) + amt);
+			return '#' + ((r << 16) | (g << 8) | b).toString(16).padStart(6, '0');
+		}
+
+		/* ── 모달에서 만들기 클릭 시 ── */
+		function applyWheel() {
+			const inputs = document.querySelectorAll('.wheel-item-input');
+			const items  = Array.from(inputs).map(i => i.value.trim()).filter(Boolean);
+
+			if (items.length < 2) {
+				alert('최소 2개 이상의 항목을 입력해주세요!');
+				return;
+			}
+
+			wItems = items;
+			wAngle = 0;
+			drawWheel(0);
+			document.getElementById('spinBtn').disabled = false;
+			document.getElementById('wheelResult').innerHTML = '';
+			bootstrap.Modal.getInstance(document.getElementById('wheelModal')).hide();
+		}
+
+		/* ── 텍스트 입력으로 목록 초기화 ── */
+		function resetFromText() {
+			const val   = document.getElementById('wheelInput').value;
+			const items = val.split(',').map(s => s.trim()).filter(Boolean);
+			if (items.length < 2) { alert('최소 2개 이상의 항목을 입력해주세요!'); return; }
+			renderItemList(items);
+		}
+
+		/* ── 항목 목록 전체 렌더링 ── */
+		function renderItemList(items) {
+			document.getElementById('wheelItemList').innerHTML = '';
+			items.forEach(v => addWheelItemRow(v));
+		}
+
+		/* ── 항목 행 1개 추가 ── */
+		function addWheelItem() {
+			const inp = addWheelItemRow('');
+			inp.focus();
+		}
+
+		function addWheelItemRow(value) {
+			const list = document.getElementById('wheelItemList');
+
+			const row = document.createElement('div');
+			row.className = 'd-flex gap-2 align-items-center';
+
+			const inp = document.createElement('input');
+			inp.type        = 'text';
+			inp.className   = 'form-control wheel-item-input';
+			inp.value       = value;
+			inp.placeholder = '항목 이름';
+
+			const btn = document.createElement('button');
+			btn.className   = 'btn btn-outline-danger';
+			btn.textContent = '−';
+			btn.onclick     = () => row.remove();
+
+			row.appendChild(inp);
+			row.appendChild(btn);
+			list.appendChild(row);
+			return inp;
+		}
+
+		/* 모달 열릴 때 입력창 포커스 & 목록 동기화 */
+		document.getElementById('wheelModal').addEventListener('shown.bs.modal', () => {
+			const source = wItems.length >= 2
+				? wItems
+				: document.getElementById('wheelInput').value.split(',').map(s => s.trim()).filter(Boolean);
+			renderItemList(source);
+		});
+	</script>
 </body>
 </html>
