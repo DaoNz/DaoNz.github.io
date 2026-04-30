@@ -19,7 +19,13 @@
 			font-family: 'SB_Gothic';
 			src: url('/assets/fonts/SB_Gothic.ttf') format('truetype');
 		}
-		body { font-family: SB_Gothic; }
+		body {
+			font-family: SB_Gothic;
+			background:
+				linear-gradient(rgba(255,255,255,0.6), rgba(255,255,255,0.6)),
+				url('/assets/img/spring_blossom_1.jpg') no-repeat center center fixed;
+			background-size: cover;
+		}
 
 		@keyframes fadeInScale {
 			from { opacity: 0; transform: scale(0.6); }
@@ -254,7 +260,7 @@
 				ctx.textAlign = 'right';
 				ctx.fillStyle = '#fff';
 
-				const fontSize = Math.max(11, Math.min(17, r * slice * 0.38));
+				const fontSize = Math.max(14, Math.min(26, r * slice * 0.42));
 				ctx.font = `bold ${fontSize}px 'SB_Gothic', Arial, sans-serif`;
 				ctx.shadowColor = 'rgba(0,0,0,.65)';
 				ctx.shadowBlur  = 4;
