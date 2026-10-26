@@ -51,20 +51,26 @@
 			box-shadow: 0 16px 48px rgba(0,0,0,.45);
 		}
 
-		.fab-wheel {
-			position: fixed;
-			bottom: 28px;
-			right: 28px;
-			z-index: 1055;
-			border-radius: 50px;
-			padding: 12px 22px;
-			font-size: 1rem;
-			box-shadow: 0 4px 18px rgba(0,0,0,.35);
-			transition: transform .15s, box-shadow .15s;
+		/* 판 + 가운데 화살표 */
+		.wheel-wrap {
+			position: relative;
+			width: min(600px, 92vw);
+			aspect-ratio: 1;
 		}
-		.fab-wheel:hover {
-			transform: translateY(-2px);
-			box-shadow: 0 8px 24px rgba(0,0,0,.4);
+		.wheel-wrap canvas {
+			display: block;
+			width: 100%;
+			height: 100%;
+			border-radius: 50%;
+			box-shadow: 0 6px 24px rgba(0,0,0,.3);
+		}
+		.wheel-arrow {
+			position: absolute;
+			inset: 0;
+			width: 100%;
+			height: 100%;
+			pointer-events: none;
+			filter: drop-shadow(0 2px 4px rgba(0,0,0,.45));
 		}
 	</style>
 </head>
@@ -78,23 +84,18 @@
 		<!-- 캔버스 & 버튼 -->
 		<div class="d-flex flex-column align-items-center">
 
-			<!-- 포인터 + 캔버스 래퍼 -->
-			<div style="position:relative; display:inline-block;">
-				<!-- 위쪽 화살표 (포인터) -->
-				<div style="
-					position:absolute; top:-22px; left:50%;
-					transform:translateX(-50%);
-					width:0; height:0;
-					border-left:14px solid transparent;
-					border-right:14px solid transparent;
-					border-top:28px solid #dc3545;
-					z-index:10;
-					filter:drop-shadow(0 2px 4px rgba(0,0,0,.45));
-				"></div>
-				<canvas id="wheelCanvas" width="600" height="600"
-				        style="display:block; border-radius:50%;
-				               box-shadow:0 6px 24px rgba(0,0,0,.3);">
-				</canvas>
+			<!-- 판(고정) + 가운데 화살표(회전) -->
+			<div class="wheel-wrap">
+				<canvas id="wheelCanvas"></canvas>
+				<!-- 화살표 (viewBox = 판 좌표 600×600) -->
+				<svg class="wheel-arrow" viewBox="0 0 600 600">
+					<g id="wheelArrow">
+						<path d="M300 150 L326 212 L307 203 L307 342 L293 342 L293 203 L274 212 Z"
+						      fill="#dc3545" stroke="#fff" stroke-width="3" stroke-linejoin="round"/>
+					</g>
+					<circle cx="300" cy="300" r="26" fill="#fff" stroke="#bbb" stroke-width="4"/>
+					<circle cx="300" cy="300" r="9" fill="#555"/>
+				</svg>
 			</div>
 
 			<button id="spinBtn" class="btn btn-success btn-lg mt-4 px-5 py-2"
@@ -130,169 +131,142 @@
 		</div>
 	</div>
 
-	<!-- ====== 항목 바꾸기 FAB ====== -->
-	<button class="btn btn-secondary fab-wheel"
-	        data-bs-toggle="modal" data-bs-target="#wheelModal">
-		✏️ 항목 바꾸기
-	</button>
-
-	<!-- ====== 항목 바꾸기 모달 ====== -->
-	<div class="modal fade" id="wheelModal" tabindex="-1" aria-labelledby="wheelModalLabel" aria-hidden="true">
-		<div class="modal-dialog modal-dialog-centered">
-			<div class="modal-content">
-				<div class="modal-header">
-					<h5 class="modal-title" id="wheelModalLabel">✏️ 항목 바꾸기</h5>
-					<button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-				</div>
-				<div class="modal-body">
-
-					<!-- 텍스트 일괄 초기화 -->
-					<label class="form-label text-muted small">쉼표(,)로 구분하여 일괄 입력</label>
-					<div class="d-flex gap-2 mb-3">
-						<input type="text" id="wheelInput" class="form-control"
-						       placeholder="예) 첫번째,두번째,세번째"
-						       value="기원해 봄,초대해 봄,경청해 봄,봉사해 봄,격려해 봄,거짓말해 봄,감사해 봄,도전해 봄,연찬해 봄,착각해 봄,용서해 봄,배워 봄">
-						<button class="btn btn-outline-secondary text-nowrap" onclick="resetFromText()">
-							이 내용으로 초기화!
-						</button>
-					</div>
-
-					<hr class="my-2">
-
-					<!-- 항목 리스트 -->
-					<label class="form-label text-muted small">항목 목록</label>
-					<div id="wheelItemList"
-					     style="max-height:260px; overflow-y:auto;"
-					     class="d-flex flex-column gap-2 mb-2">
-						<!-- JS로 렌더링 -->
-					</div>
-					<button class="btn btn-outline-primary w-100 mt-1" onclick="addWheelItem()">
-						+ 항목 추가
-					</button>
-
-				</div>
-				<div class="modal-footer">
-					<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
-					<button type="button" class="btn btn-primary px-4" onclick="applyWheel()">만들기</button>
-				</div>
-			</div>
-		</div>
-	</div>
-
 	<!-- ====== 돌림판 스크립트 ====== -->
 	<script>
 		/* ── 상태 변수 ── */
-		let wItems    = [];
-		let wAngle    = 0;
+		let wAngle    = 0;   // 화살표 각도 (12시 기준 시계방향, 라디안)
 		let wSpinning = false;
 
-		const W_COLORS = [
-			'#5E8FB5', // 더스티 블루      — 기원해봄
-			'#5D9E73', // 세이지 그린      — 근행해봄
-			'#B06060', // 소프트 레드      — 성찰해봄
-			'#8A6AAE', // 라벤더 퍼플      — 정진해봄
-			'#3D9B9B', // 뮤트 틸          — 전해봄
-			'#B87C3A', // 웜 앰버          — 초대해봄
-			'#5568A8', // 슬레이트 블루    — 경청해봄
-			'#A85878', // 모브 핑크        — 동행해봄
-			'#3A8FAA', // 오션 블루        — 보은해봄
-			'#729B30', // 올리브 그린      — 환희해봄
-			'#A87030', // 캐러멜           — 봉사해봄
-			'#7050A8', // 미디엄 바이올렛  — 서원해봄
+		/* ── 칸 목록 (0번이 12시, 시계방향) ── label: 판 글귀(줄 단위), question: 팝업 질문 ── */
+		const W_ITEMS = [
+			{ color: '#5E8FB5', label: ['신심의', '좋은 점'],   question: '신심을 하면 좋은 점은?' },          // 더스티 블루
+			{ color: '#5D9E73', label: ['올해', '아쉬운 일'],   question: '올해 아쉬운 일이 있을까요?' },      // 세이지 그린
+			{ color: '#B06060', label: ['최근 들은', '칭찬'],   question: '최근에 들었던 칭찬 한 가지' },      // 소프트 레드
+			{ color: '#8A6AAE', label: ['2027년', '목표'],      question: '2027년 원단 목표 1가지' },          // 라벤더 퍼플
+			{ color: '#3D9B9B', label: ['올해 체험/', '에피소드'], question: '올해 미니 체험담 또는 에피소드' }, // 뮤트 틸
+			{ color: '#B87C3A', label: ['일만청년', '근행회란?'], question: '일만청년근행회란?' },             // 웜 앰버
+			{ color: '#5568A8', label: ['신·행·학', '중 최애'], question: '신·행·학 중 가장 좋아하는 것은?' }, // 슬레이트 블루
+			{ color: '#A85878', label: ['신조어', '맞히기'],    question: '신조어 뜻 맞히기' },                // 모브 핑크
+			{ color: '#729B30', label: ['나의', '인간혁명'],    question: '나의 인간혁명 1가지 소개' },        // 올리브 그린
 		];
+
+		/* 판 치수 (논리 px, 화살표 SVG viewBox와 같음) */
+		const W_SIZE     = 600;
+		const W_R        = 292;   // 칸 반지름
+		const W_TEXT_IN  = 162;   // 글귀 안쪽 한계 (화살표 끝 150 + 여유)
+		const W_TEXT_OUT = 280;   // 글귀 바깥 한계
+		const W_TEXT_PAD = 8;     // 칸 경계선과 글귀 사이 여백
+		const W_FONT_MAX = 32;
+		const W_LINE_H   = 1.2;
 
 		/* ── 돌림판 구성 ── */
 		function setupWheel() {
-			const val = document.getElementById('wheelInput').value;
-			wItems = val.split(',').map(s => s.trim()).filter(s => s.length > 0);
-
-			if (wItems.length < 2) {
-				alert('최소 2개 이상의 항목을 입력해주세요!');
-				return;
-			}
-
-			wAngle = 0;
-			drawWheel(0);
-			document.getElementById('spinBtn').disabled = false;
-			document.getElementById('wheelResult').innerHTML = '';
+			/* 글꼴 로드 후 그리기 (판은 한 번만 그리므로 기본 글꼴로 굳지 않게) */
+			document.fonts.load(labelFont(W_FONT_MAX)).then(() => {
+				drawWheel();
+				document.getElementById('spinBtn').disabled = false;
+			});
 		}
 
-		/* ── 캔버스 그리기 ── */
-		function drawWheel(rotation) {
+		function labelFont(size) {
+			return `bold ${size}px 'SB_Gothic', Arial, sans-serif`;
+		}
+
+		/* ── 캔버스 그리기 (판 고정) ── */
+		function drawWheel() {
 			const canvas = document.getElementById('wheelCanvas');
-			if (!canvas) return;
+			const dpr    = window.devicePixelRatio;
+			canvas.width  = W_SIZE * dpr;
+			canvas.height = W_SIZE * dpr;
 
-			const ctx  = canvas.getContext('2d');
-			const cx   = canvas.width  / 2;
-			const cy   = canvas.height / 2;
-			const r    = Math.min(cx, cy) - 8;
-			const n     = wItems.length;
+			const ctx   = canvas.getContext('2d');
+			const c     = W_SIZE / 2;
+			const n     = W_ITEMS.length;
 			const slice = (2 * Math.PI) / n;
-
-			ctx.clearRect(0, 0, canvas.width, canvas.height);
+			ctx.scale(dpr, dpr);
 
 			/* 바깥 테두리 원 */
 			ctx.beginPath();
-			ctx.arc(cx, cy, r + 6, 0, 2 * Math.PI);
+			ctx.arc(c, c, W_R + 6, 0, 2 * Math.PI);
 			ctx.fillStyle = '#2c2c2c';
 			ctx.fill();
 
-			/* 칸 그리기 */
-			for (let i = 0; i < n; i++) {
-				const sa = rotation - Math.PI / 2 + i * slice;
-				const ea = sa + slice;
-
-				/* 부채꼴 */
+			/* 칸 그리기 (i번 칸 중심 = 12시에서 i × slice) */
+			W_ITEMS.forEach((item, i) => {
+				const sa = i * slice - slice / 2 - Math.PI / 2;
 				ctx.beginPath();
-				ctx.moveTo(cx, cy);
-				ctx.arc(cx, cy, r, sa, ea);
+				ctx.moveTo(c, c);
+				ctx.arc(c, c, W_R, sa, sa + slice);
 				ctx.closePath();
-				ctx.fillStyle = W_COLORS[i % W_COLORS.length];
+				ctx.fillStyle = item.color;
 				ctx.fill();
 				ctx.strokeStyle = 'rgba(255,255,255,.75)';
 				ctx.lineWidth = 2;
 				ctx.stroke();
+			});
 
-				/* 텍스트 */
-				ctx.save();
-				ctx.translate(cx, cy);
-				ctx.rotate(sa + slice / 2);
-				ctx.textAlign = 'right';
-				ctx.fillStyle = '#fff';
-
-				const fontSize = Math.max(14, Math.min(26, r * slice * 0.42));
-				ctx.font = `bold ${fontSize}px 'SB_Gothic', Arial, sans-serif`;
-				ctx.shadowColor = 'rgba(0,0,0,.65)';
-				ctx.shadowBlur  = 4;
-
-				/* 긴 텍스트 말줄임 */
-				let txt = wItems[i];
-				const maxW = r * 0.68;
-				if (ctx.measureText(txt).width > maxW) {
-					while (txt.length > 1 && ctx.measureText(txt + '…').width > maxW)
-						txt = txt.slice(0, -1);
-					txt += '…';
-				}
-				ctx.fillText(txt, r - 14, fontSize * 0.38);
-				ctx.restore();
-			}
-
-			/* 중앙 원 */
-			ctx.beginPath();
-			ctx.arc(cx, cy, 20, 0, 2 * Math.PI);
-			ctx.fillStyle = '#fff';
-			ctx.fill();
-			ctx.strokeStyle = '#bbb';
-			ctx.lineWidth = 3;
-			ctx.stroke();
-
-			ctx.beginPath();
-			ctx.arc(cx, cy, 7, 0, 2 * Math.PI);
-			ctx.fillStyle = '#555';
-			ctx.fill();
+			/* 글귀 (가로쓰기, 전 칸 같은 글자 크기) */
+			const fit = fitLabels(ctx, slice);
+			const lh  = fit.size * W_LINE_H;
+			ctx.font         = labelFont(fit.size);
+			ctx.textAlign    = 'center';
+			ctx.textBaseline = 'middle';
+			ctx.fillStyle    = '#fff';
+			ctx.shadowColor  = 'rgba(0,0,0,.65)';
+			ctx.shadowBlur   = 4;
+			W_ITEMS.forEach((item, i) => {
+				const x = c + fit.dist[i] * Math.sin(i * slice);
+				const y = c - fit.dist[i] * Math.cos(i * slice);
+				item.label.forEach((line, k) => {
+					ctx.fillText(line, x, y + (k - (item.label.length - 1) / 2) * lh);
+				});
+			});
 		}
 
-		/* ── 돌리기 ── */
+		/* 모든 글귀가 칸 안에 드는 가장 큰 글자 크기 + 칸별 글귀 중심 거리 */
+		function fitLabels(ctx, slice) {
+			for (let size = W_FONT_MAX; ; size--) {
+				ctx.font = labelFont(size);
+				const dist = W_ITEMS.map((item, i) => {
+					const w  = Math.max(...item.label.map(s => ctx.measureText(s).width));
+					const h  = item.label.length * size * W_LINE_H;
+					const ok = [];
+					for (let d = W_TEXT_IN; d <= W_TEXT_OUT; d++) {
+						if (boxFits(i * slice, slice / 2, d, w, h)) {
+							ok.push(d);
+						}
+					}
+					return ok.length ? (ok[0] + ok[ok.length - 1]) / 2 : null;   // 들어가는 구간의 가운데
+				});
+				if (dist.every(d => d !== null)) {
+					return { size, dist };
+				}
+			}
+		}
+
+		/* 글귀 상자(w×h)를 칸 중심선 위 거리 d에 놓을 때 칸 안에 드는지 */
+		function boxFits(th, half, d, w, h) {
+			const x0 = d * Math.sin(th) - w / 2, x1 = x0 + w;
+			const y0 = -d * Math.cos(th) - h / 2, y1 = y0 + h;
+
+			/* 안쪽: 상자에서 판 중심과 가장 가까운 점이 화살표 끝 밖 */
+			const near = Math.hypot(Math.min(Math.max(0, x0), x1), Math.min(Math.max(0, y0), y1));
+
+			/* 바깥·양옆: 네 모서리가 테두리 안, 칸 경계선에서 여백 이상 */
+			return near >= W_TEXT_IN && [[x0, y0], [x1, y0], [x1, y1], [x0, y1]].every(([x, y]) => {
+				const r   = Math.hypot(x, y);
+				const off = Math.atan2(x, -y) - th;
+				const gap = r * Math.sin(half - Math.abs(Math.atan2(Math.sin(off), Math.cos(off))));
+				return r <= W_TEXT_OUT && gap >= W_TEXT_PAD;
+			});
+		}
+
+		/* 화살표 회전 */
+		function drawArrow(angle) {
+			document.getElementById('wheelArrow').setAttribute('transform', `rotate(${angle * 180 / Math.PI} 300 300)`);
+		}
+
+		/* ── 돌리기 (가운데 화살표 회전) ── */
 		function spinWheel() {
 			if (wSpinning) return;
 			wSpinning = true;
@@ -312,14 +286,14 @@
 				const p = Math.min((now - t0) / dur, 1);
 				const e = 1 - Math.pow(1 - p, 4);   // ease-out quart
 				wAngle  = a0 + (target - a0) * e;
-				drawWheel(wAngle);
+				drawArrow(wAngle);
 
 				if (p < 1) {
 					requestAnimationFrame(loop);
 				} else {
 					wAngle    = target;
 					wSpinning = false;
-					drawWheel(wAngle);
+					drawArrow(wAngle);
 					btn.disabled    = false;
 					btn.textContent = '🎰 돌리기!';
 					showWheelResult();
@@ -329,18 +303,17 @@
 
 		/* ── 결과 표시 (모달) ── */
 		function showWheelResult() {
-			const n     = wItems.length;
+			const n     = W_ITEMS.length;
 			const slice = (2 * Math.PI) / n;
-			const norm  = ((-wAngle % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
-			const idx   = Math.floor(norm / slice) % n;
+			const norm  = ((wAngle % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+			const idx   = Math.floor((norm + slice / 2) / slice) % n;   // 칸 중심이 i × slice이므로 반 칸 보정
 
-			const item  = wItems[idx];
-			const base  = W_COLORS[idx % W_COLORS.length];
-			const light = lightenColor(base, 38);
+			const item  = W_ITEMS[idx];
+			const light = lightenColor(item.color, 38);
 
 			const body = document.getElementById('resultModalBody');
-			body.style.background = `linear-gradient(145deg, ${light} 0%, ${base} 100%)`;
-			document.getElementById('resultModalText').textContent = item;
+			body.style.background = `linear-gradient(145deg, ${light} 0%, ${item.color} 100%)`;
+			document.getElementById('resultModalText').textContent = item.question;
 
 			new bootstrap.Modal(document.getElementById('resultModal')).show();
 		}
@@ -353,75 +326,6 @@
 			const b = Math.min(255, (n       & 255) + amt);
 			return '#' + ((r << 16) | (g << 8) | b).toString(16).padStart(6, '0');
 		}
-
-		/* ── 모달에서 만들기 클릭 시 ── */
-		function applyWheel() {
-			const inputs = document.querySelectorAll('.wheel-item-input');
-			const items  = Array.from(inputs).map(i => i.value.trim()).filter(Boolean);
-
-			if (items.length < 2) {
-				alert('최소 2개 이상의 항목을 입력해주세요!');
-				return;
-			}
-
-			wItems = items;
-			wAngle = 0;
-			drawWheel(0);
-			document.getElementById('spinBtn').disabled = false;
-			document.getElementById('wheelResult').innerHTML = '';
-			bootstrap.Modal.getInstance(document.getElementById('wheelModal')).hide();
-		}
-
-		/* ── 텍스트 입력으로 목록 초기화 ── */
-		function resetFromText() {
-			const val   = document.getElementById('wheelInput').value;
-			const items = val.split(',').map(s => s.trim()).filter(Boolean);
-			if (items.length < 2) { alert('최소 2개 이상의 항목을 입력해주세요!'); return; }
-			renderItemList(items);
-		}
-
-		/* ── 항목 목록 전체 렌더링 ── */
-		function renderItemList(items) {
-			document.getElementById('wheelItemList').innerHTML = '';
-			items.forEach(v => addWheelItemRow(v));
-		}
-
-		/* ── 항목 행 1개 추가 ── */
-		function addWheelItem() {
-			const inp = addWheelItemRow('');
-			inp.focus();
-		}
-
-		function addWheelItemRow(value) {
-			const list = document.getElementById('wheelItemList');
-
-			const row = document.createElement('div');
-			row.className = 'd-flex gap-2 align-items-center';
-
-			const inp = document.createElement('input');
-			inp.type        = 'text';
-			inp.className   = 'form-control wheel-item-input';
-			inp.value       = value;
-			inp.placeholder = '항목 이름';
-
-			const btn = document.createElement('button');
-			btn.className   = 'btn btn-outline-danger';
-			btn.textContent = '−';
-			btn.onclick     = () => row.remove();
-
-			row.appendChild(inp);
-			row.appendChild(btn);
-			list.appendChild(row);
-			return inp;
-		}
-
-		/* 모달 열릴 때 입력창 포커스 & 목록 동기화 */
-		document.getElementById('wheelModal').addEventListener('shown.bs.modal', () => {
-			const source = wItems.length >= 2
-				? wItems
-				: document.getElementById('wheelInput').value.split(',').map(s => s.trim()).filter(Boolean);
-			renderItemList(source);
-		});
 	</script>
 </body>
 </html>
